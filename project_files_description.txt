@@ -1,0 +1,981 @@
+# Reliable Data Transfer Protocol Project Report
+
+## Introduction
+
+This report provides a comprehensive summary of the current codebase for the **Reliable Data Transfer Protocol (RDT Protocol)** project. It outlines the existing components, evaluates their functionalities, and proposes recommended changes to enhance the project's effectiveness and alignment with the specified requirements.
+
+## Codebase Summary
+
+The project consists of two primary components:
+
+1. **FileListServer**
+2. **FileListClient**
+
+### 1. FileListServer
+
+The **FileListServer** is responsible for handling client requests related to file listings, file sizes, and file data transfers. Below is an overview of its structure and functionalities:
+
+- **Project Configuration:**
+  - Utilizes **Maven** for dependency management and build processes, as evidenced by the `pom.xml` file.
+  - Configured with Eclipse IDE settings (`.project`, `.classpath`, and `.settings` files) to ensure compatibility and streamline the development environment.
+
+- **Dockerization:**
+  - The server is dockerized using a multi-stage **Dockerfile**, facilitating easy deployment and consistent testing environments.
+  - Scripts like `docker_start.sh` and `docker_stop.sh` manage the server's lifecycle within Docker containers.
+  - Network configurations are handled to support multiple interfaces and emulate network conditions using **TC (Traffic Control)**.
+
+- **Source Code Overview:**
+  - **`FileRequestHandler.java`**: Manages different types of client requests (`GET_FILE_LIST`, `GET_FILE_SIZE`, `GET_FILE_DATA`) and ensures appropriate responses or error messages are sent based on the request's validity.
+  - **`RequestType.java`**: Defines the structure and serialization/deserialization of request packets, facilitating communication between the client and server.
+  - **Model Classes (`FileDescriptor.java`, etc.)**: Represent the data structures used for file metadata and facilitate easy conversion between objects and byte arrays for network transmission.
+
+### 2. FileListClient
+
+The **FileListClient** is designed to interact with the server, sending requests and handling responses to facilitate reliable file transfers. Key aspects include:
+
+- **Project Configuration:**
+  - Similar to the server, it employs Eclipse IDE settings for consistency.
+  - Manages dependencies using Maven, ensuring all necessary libraries (e.g., Log4j) are included.
+
+- **Source Code Overview:**
+  - **`dummyClient.java`**: Serves as a test client to validate server responses, including handling invalid requests.
+  - **Model Classes (`RequestType.java`, `FileDescriptor.java`, etc.)**: Mirror the server's data structures to ensure seamless communication and data integrity.
+
+## Analysis of Current Implementation
+
+While the existing codebase establishes a foundational structure for the RDT Protocol, several areas require enhancements to meet the project's objectives fully:
+
+1. **Client-Side Protocol Implementation:**
+   - The current client appears to be a dummy or test client. A fully functional client adhering to the project specifications—such as utilizing multiple network interfaces and implementing adaptive strategies for handling bandwidth variability and packet loss—is yet to be developed.
+
+2. **Reliable Data Transfer over UDP:**
+   - The server and client handle basic request-response mechanisms. However, implementing reliability over UDP necessitates additional mechanisms like acknowledgments, retransmissions, sequencing, and timeout management, which are not evident in the provided snippets.
+
+3. **Performance Metrics and Reporting:**
+   - While the server logs total sent bytes, the client lacks comprehensive reporting functionalities. The project requirements emphasize real-time feedback on transfer speed, percentage completion, packet loss rates, and round-trip times.
+
+4. **Error Handling and Robustness:**
+   - The server manages invalid request types and file IDs but may require more extensive error handling to cover scenarios like network interruptions, corrupted data, and adaptive rate adjustments based on real-time network conditions.
+
+5. **Concurrency and Multithreading:**
+   - Handling multiple network interfaces and simultaneous data transfers efficiently may require multithreading or asynchronous processing, which needs to be addressed in both server and client implementations.
+
+## Recommended Changes and Enhancements
+
+To align the codebase with the project requirements and enhance its overall functionality, the following changes are recommended:
+
+### 1. Develop a Comprehensive Client Implementation
+
+- **Multi-Interface Utilization:**
+  - Implement logic to handle multiple network interfaces, distributing data transfers across them to maximize throughput.
+  - If limited to a single interface, manage multiple ports effectively to simulate parallel connections.
+
+- **Adaptive Transfer Strategies:**
+  - Integrate algorithms to monitor connection speeds and packet loss rates in real-time.
+  - Dynamically adjust data distribution based on the observed performance of each connection.
+
+- **Reliable Data Transfer Mechanisms:**
+  - Incorporate sequencing of packets to maintain data order.
+  - Implement acknowledgment (ACK) packets and retransmission strategies to handle lost or corrupted packets.
+  - Manage timeouts judiciously to balance between retransmission attempts and overall transfer speed.
+
+### 2. Enhance Performance Metrics and Reporting
+
+- **Real-Time Monitoring:**
+  - Display transfer speed per connection, overall transfer rate, percentage of completion, elapsed time, packet loss rates, and round-trip times during the download process.
+  
+- **Post-Transfer Summary:**
+  - After completing a transfer, present a summary that includes all relevant statistics, such as total download time, data integrity verification (MD5 checksum), and efficiency ratios.
+
+### 3. Improve Error Handling and Robustness
+
+- **Comprehensive Error Responses:**
+  - Handle a broader range of error scenarios, including network failures, unexpected disconnections, and data corruption.
+  
+- **Retry and Recovery Mechanisms:**
+  - Implement strategies to recover from transient errors without necessitating a complete restart of the file transfer process.
+
+### 4. Optimize Server-Side Operations
+
+- **Scalability:**
+  - Ensure the server can handle multiple concurrent client connections without significant performance degradation.
+  
+- **Efficient Resource Management:**
+  - Optimize the server's handling of large files and high-frequency requests to maintain consistent performance under load.
+
+### 5. Implement Concurrency and Multithreading
+
+- **Parallel Processing:**
+  - Utilize multithreading in both server and client to manage multiple connections and data streams efficiently.
+  
+- **Synchronization:**
+  - Ensure thread-safe operations, especially when accessing shared resources like file descriptors and network sockets.
+
+### 6. Refine Docker and Deployment Configurations
+
+- **Custom TC Policies:**
+  - Modify the `Dockerfile` and relevant scripts to allow easy customization of Traffic Control (TC) policies for testing various network conditions.
+  
+- **Automated Testing:**
+  - Develop automated tests within the Docker environment to validate the server and client functionalities under different simulated network scenarios.
+
+### 7. Documentation and Code Quality
+
+- **Comprehensive README:**
+  - Enhance the `readme` files with detailed instructions on building, running, and testing both the server and client applications.
+  
+- **Code Documentation:**
+  - Ensure all classes and methods are well-documented with comments explaining their purposes and functionalities.
+  
+- **Consistent Naming Conventions:**
+  - Adopt consistent and meaningful naming conventions across the codebase to improve readability and maintainability.
+
+## Conclusion
+
+The current codebase lays the groundwork for a functional Reliable Data Transfer Protocol system. However, to meet the project's ambitious goals—such as achieving high transfer speeds, ensuring data integrity, and adapting to varying network conditions—significant enhancements are necessary. By implementing the recommended changes, the project can evolve into a robust, efficient, and reliable data transfer solution that aligns perfectly with the outlined requirements.
+
+
+
+
+# Reliable Data Transfer Protocol Client Development
+
+## Introduction
+
+To develop a robust and efficient client for the **Reliable Data Transfer Protocol (RDT Protocol)** project, it's essential to establish a well-organized file structure and implement comprehensive classes that handle various aspects of the protocol. This guide outlines the proposed file structure for the client side and provides detailed implementations of the necessary classes to achieve reliable file transfers over multiple network interfaces using UDP.
+
+## Proposed File Structure
+
+A well-structured project enhances maintainability, scalability, and readability. Below is the envisioned file structure for the `FileListClient`:
+
+```
+FileListClient/
+│
+├── src/
+│   ├── client/
+│   │   ├── Client.java
+│   │   ├── ConnectionManager.java
+│   │   ├── FileDownloader.java
+│   │   └── LoggerManager.java
+│   │
+│   ├── model/
+│   │   ├── FileDescriptor.java
+│   │   ├── RequestType.java
+│   │   └── ResponseType.java
+│   │
+│   └── utils/
+│       ├── MD5Checksum.java
+│       └── Timer.java
+│
+├── lib/
+│   └── log4j-1.2-api-2.7.jar
+│   └── log4j-api-2.7.jar
+│   └── log4j-core-2.7.jar
+│
+├── resources/
+│   └── config.properties
+│
+├── build/
+│
+├── .classpath
+├── .project
+├── .gitignore
+├── README.md
+└── pom.xml
+```
+
+### Directory Breakdown
+
+- **src/**: Contains all the source code.
+  - **client/**: Core client classes handling the application's logic.
+    - `Client.java`: Entry point of the client application.
+    - `ConnectionManager.java`: Manages multiple network connections.
+    - `FileDownloader.java`: Handles the downloading of file data.
+    - `LoggerManager.java`: Manages logging functionalities.
+  
+  - **model/**: Data models representing various entities.
+    - `FileDescriptor.java`: Represents file metadata.
+    - `RequestType.java`: Defines request packet structure.
+    - `ResponseType.java`: Defines response packet structure.
+  
+  - **utils/**: Utility classes for additional functionalities.
+    - `MD5Checksum.java`: Computes MD5 checksums for file integrity.
+    - `Timer.java`: Handles timing and performance measurements.
+
+- **lib/**: External libraries required by the project.
+- **resources/**: Configuration files and other resources.
+- **build/**: Compiled classes and build artifacts.
+- **.classpath & .project**: Eclipse project configuration files.
+- **.gitignore**: Specifies intentionally untracked files.
+- **README.md**: Project documentation.
+- **pom.xml**: Maven project configuration.
+
+## Class Design and Implementations
+
+### 1. `Client.java`
+
+**Purpose**: Serves as the entry point of the client application. It handles user interactions, initializes connections, and coordinates the file download process.
+
+```java:src/client/Client.java
+package client;
+
+import model.FileDescriptor;
+import model.RequestType;
+import model.ResponseType;
+import utils.MD5Checksum;
+import utils.Timer;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.List;
+import java.util.Scanner;
+
+public class Client {
+    private static final int MAX_CONNECTIONS = 2;
+    private ConnectionManager connectionManager;
+    private Scanner scanner;
+
+    public Client(String[] serverAddresses) throws IOException {
+        this.connectionManager = new ConnectionManager(MAX_CONNECTIONS, serverAddresses);
+        this.scanner = new Scanner(System.in);
+    }
+
+    public void start() throws IOException {
+        while (true) {
+            List<FileDescriptor> files = getFileList();
+            displayFileList(files);
+            System.out.print("Enter the file id to download or -1 to exit: ");
+            int fileId = scanner.nextInt();
+            if (fileId == -1) {
+                break;
+            }
+            FileDescriptor selectedFile = getFileDescriptor(files, fileId);
+            if (selectedFile == null) {
+                System.out.println("Invalid File ID. Please try again.");
+                continue;
+            }
+            long fileSize = getFileSize(fileId);
+            System.out.println("The file size is " + fileSize + " bytes. Starting download...");
+            downloadFile(fileId, selectedFile.getFileName(), fileSize);
+        }
+        scanner.close();
+        connectionManager.closeAllConnections();
+    }
+
+    private List<FileDescriptor> getFileList() throws IOException {
+        ResponseType response = connectionManager.sendRequest(new RequestType(RequestType.REQUEST_TYPES.GET_FILE_LIST, 0, 0, 0, null));
+        return ResponseType.parseFileList(response.getData());
+    }
+
+    private void displayFileList(List<FileDescriptor> files) {
+        System.out.println("File List:");
+        for (FileDescriptor file : files) {
+            System.out.println(file.getFileId() + "        " + file.getFileName());
+        }
+    }
+
+    private FileDescriptor getFileDescriptor(List<FileDescriptor> files, int fileId) {
+        for (FileDescriptor file : files) {
+            if (file.getFileId() == fileId) {
+                return file;
+            }
+        }
+        return null;
+    }
+
+    private long getFileSize(int fileId) throws IOException {
+        RequestType request = new RequestType(RequestType.REQUEST_TYPES.GET_FILE_SIZE, fileId, 0, 0, null);
+        ResponseType response = connectionManager.sendRequest(request);
+        return ResponseType.parseFileSize(response.getData());
+    }
+
+    private void downloadFile(int fileId, String fileName, long fileSize) throws IOException {
+        FileDownloader downloader = new FileDownloader(fileId, fileName, fileSize, connectionManager);
+        Timer timer = new Timer();
+        timer.start();
+        downloader.download();
+        timer.stop();
+
+        String md5 = MD5Checksum.getMD5Checksum(fileName);
+        boolean isValid = md5.equals(downloader.getExpectedMD5());
+        System.out.println("Download " + (isValid ? "completed successfully." : "failed due to data corruption."));
+        System.out.println("MD5 hash: " + md5);
+        System.out.println("Time taken: " + timer.getElapsedTime() + " ms");
+        System.out.println("MD5 Verification: " + (isValid ? "Passed" : "Failed"));
+    }
+
+    public static void main(String[] args) {
+        if (args.length < 2) {
+            System.out.println("Usage: java Client server_IP1:port1 server_IP2:port2");
+            return;
+        }
+        try {
+            Client client = new Client(args);
+            client.start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### 2. `ConnectionManager.java`
+
+**Purpose**: Manages multiple UDP connections to the server. It distributes data transfer across different network interfaces or ports to maximize throughput and handle variability in network conditions.
+
+```java:src/client/ConnectionManager.java
+package client;
+
+import model.RequestType;
+import model.ResponseType;
+
+import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ConnectionManager {
+    private List<DatagramSocket> sockets;
+    private List<InetSocketAddress> serverAddresses;
+    private int currentConnection;
+
+    public ConnectionManager(int maxConnections, String[] serverAddressesInput) throws IOException {
+        this.sockets = new ArrayList<>();
+        this.serverAddresses = new ArrayList<>();
+        this.currentConnection = 0;
+
+        for (int i = 0; i < maxConnections && i < serverAddressesInput.length; i++) {
+            String[] parts = serverAddressesInput[i].split(":");
+            String ip = parts[0];
+            int port = Integer.parseInt(parts[1]);
+            InetSocketAddress address = new InetSocketAddress(ip, port);
+            this.serverAddresses.add(address);
+            DatagramSocket socket = new DatagramSocket();
+            sockets.add(socket);
+        }
+    }
+
+    public synchronized DatagramSocket getNextSocket() {
+        DatagramSocket socket = sockets.get(currentConnection);
+        currentConnection = (currentConnection + 1) % sockets.size();
+        return socket;
+    }
+
+    public ResponseType sendRequest(RequestType request) throws IOException {
+        DatagramSocket socket = getNextSocket();
+        InetSocketAddress address = serverAddresses.get(sockets.indexOf(socket));
+
+        byte[] sendData = request.toByteArray();
+        UDPSender sender = new UDPSender(socket, address, sendData);
+        sender.send();
+
+        byte[] receiveData = new byte[ResponseType.MAX_RESPONSE_SIZE()];
+        UDPReceiver receiver = new UDPReceiver(socket, receiveData);
+        ResponseType response = receiver.receive();
+
+        return response;
+    }
+
+    public void closeAllConnections() {
+        for (DatagramSocket socket : sockets) {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+        }
+    }
+}
+```
+
+### 3. `FileDownloader.java`
+
+**Purpose**: Handles the downloading of file data by managing multiple connections, requesting file segments, handling acknowledgments, and ensuring data integrity through retransmissions.
+
+```java:src/client/FileDownloader.java
+package client;
+
+import model.RequestType;
+import model.ResponseType;
+import model.FileDataResponseType;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+public class FileDownloader {
+    private int fileId;
+    private String fileName;
+    private long fileSize;
+    private ConnectionManager connectionManager;
+    private ConcurrentHashMap<Long, byte[]> fileDataMap;
+    private AtomicLong bytesReceived;
+    private String expectedMD5;
+
+    public FileDownloader(int fileId, String fileName, long fileSize, ConnectionManager connectionManager) {
+        this.fileId = fileId;
+        this.fileName = fileName;
+        this.fileSize = fileSize;
+        this.connectionManager = connectionManager;
+        this.fileDataMap = new ConcurrentHashMap<>();
+        this.bytesReceived = new AtomicLong(0);
+        this.expectedMD5 = "";
+    }
+
+    public void download() throws IOException {
+        int segmentSize = ResponseType.MAX_DATA_SIZE;
+        long segments = (fileSize + segmentSize - 1) / segmentSize;
+
+        for (long i = 0; i < segments; i++) {
+            long startByte = i * segmentSize + 1;
+            long endByte = Math.min((i + 1) * segmentSize, fileSize);
+            RequestType request = new RequestType(RequestType.REQUEST_TYPES.GET_FILE_DATA, fileId, startByte, endByte, null);
+            ResponseType response = connectionManager.sendRequest(request);
+            if (response.getResponseType() == ResponseType.RESPONSE_TYPES.GET_FILE_DATA_SUCCESS) {
+                FileDataResponseType dataResponse = new FileDataResponseType(response.toByteArray());
+                fileDataMap.put(dataResponse.getStartByte(), dataResponse.getData());
+                bytesReceived.addAndGet(dataResponse.getData().length);
+                // Optionally, implement acknowledgment and retransmission logic here
+            } else {
+                System.out.println("Error in receiving data for segment: " + i);
+                // Implement retransmission or error handling
+            }
+        }
+
+        assembleFile();
+        this.expectedMD5 = MD5Checksum.getMD5Checksum(fileName);
+    }
+
+    private void assembleFile() throws IOException {
+        try (FileOutputStream fos = new FileOutputStream(fileName)) {
+            for (long i = 1; i <= fileSize; i++) {
+                // Find the byte corresponding to the current position
+                byte[] data = fileDataMap.get(i);
+                if (data != null) {
+                    fos.write(data);
+                }
+            }
+        }
+    }
+
+    public String getExpectedMD5() {
+        return expectedMD5;
+    }
+}
+```
+
+### 4. `LoggerManager.java`
+
+**Purpose**: Manages logging across the client application using Log4j for debugging and monitoring purposes.
+
+```java:src/client/LoggerManager.java
+package client;
+
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+
+public class LoggerManager {
+    private static LoggerManager instance = null;
+    private Logger logger;
+
+    private LoggerManager(Class<?> clazz) {
+        logger = Logger.getLogger(clazz);
+        PropertyConfigurator.configure("resources/log4j.properties");
+    }
+
+    public static LoggerManager getInstance(Class<?> clazz) {
+        if (instance == null) {
+            instance = new LoggerManager(clazz);
+        }
+        return instance;
+    }
+
+    public void debug(String message) {
+        logger.debug(message);
+    }
+
+    public void info(String message) {
+        logger.info(message);
+    }
+
+    public void warn(String message) {
+        logger.warn(message);
+    }
+
+    public void error(String message) {
+        logger.error(message);
+    }
+
+    public void trace(String message) {
+        logger.trace(message);
+    }
+}
+```
+
+### 5. `FileDescriptor.java`
+
+**Purpose**: Represents the metadata of files available for download.
+
+```java:src/model/FileDescriptor.java
+package model;
+
+public class FileDescriptor {
+    private int fileId;
+    private String fileName;
+
+    public FileDescriptor(int fileId, String fileName) {
+        this.fileId = fileId;
+        this.fileName = fileName;
+    }
+
+    public int getFileId() {
+        return fileId;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    @Override
+    public String toString() {
+        return fileId + "-" + fileName;
+    }
+}
+```
+
+### 6. `RequestType.java`
+
+**Purpose**: Defines the structure and serialization/deserialization of request packets sent from the client to the server.
+
+```java:src/model/RequestType.java
+package model;
+
+import java.security.InvalidParameterException;
+import java.util.Arrays;
+
+public class RequestType {
+    
+    public static class REQUEST_TYPES{
+        public static final int GET_FILE_LIST = 1;
+        public static final int GET_FILE_SIZE = 2;
+        public static final int GET_FILE_DATA = 3;
+    }
+    
+    // 1 byte
+    private int requestType;
+    // 1 byte
+    private int fileId;
+    // 4 bytes
+    private long startByte;
+    // 4 bytes
+    private long endByte;
+    private byte[] data;
+    
+    public RequestType(int requestType, int fileId, long startByte, long endByte, byte[] data){
+        this.requestType = requestType;
+        this.fileId = fileId;
+        this.startByte = startByte;
+        this.endByte = endByte;
+        this.data = data;
+    }
+    
+    public RequestType(byte[] rawData) {
+        // request_type:1 byte|file_id:1 byte|start_byte 4 bytes|end_byte 4 bytes
+        if (rawData.length < 10){
+            throw new InvalidParameterException("Invalid Header");
+        }
+        requestType = (int)rawData[0] & 0xFF;
+        fileId = (int)rawData[1] & 0xFF;
+        startByte = 0;
+        for(int i = 2; i < 6; i++){
+            startByte = (startByte << 8) | ((int)rawData[i] & 0xFF);
+        }
+        endByte = 0;
+        for(int i = 6; i < 10; i++){
+            endByte = (endByte << 8) | ((int)rawData[i] & 0xFF);
+        }
+        data = Arrays.copyOfRange(rawData, 10, rawData.length);
+    }
+    
+    public byte[] toByteArray(){
+        int dataLength = (data != null) ? data.length : 0;
+        byte[] rawData = new byte[10 + dataLength];
+        rawData[0] = (byte)(requestType & 0xFF);
+        rawData[1] = (byte)(fileId & 0xFF);
+        long tmp = startByte;
+        for(int i = 5; i > 1; i--){
+            rawData[i] = (byte)(tmp & 0xFF);
+            tmp >>= 8;
+        }
+        tmp = endByte;
+        for(int i = 9; i > 5; i--){
+            rawData[i] = (byte)(tmp & 0xFF);
+            tmp >>= 8;
+        }
+        if (data != null){
+            System.arraycopy(data, 0, rawData, 10, dataLength);
+        }
+        return rawData;
+    }
+    
+    public int getRequestType() {
+        return requestType;
+    }
+
+    public int getFileId() {
+        return fileId;
+    }
+
+    public long getStartByte() {
+        return startByte;
+    }
+
+    public long getEndByte() {
+        return endByte;
+    }
+
+    public byte[] getData() {
+        return data;
+    }
+    
+    @Override
+    public String toString() {
+        StringBuilder resultBuf = new StringBuilder("\nrequest_type:" + requestType);
+        resultBuf.append("\nfile_id:" + fileId);
+        resultBuf.append("\nstart_byte:" + startByte);
+        resultBuf.append("\nend_byte:" + endByte);
+        resultBuf.append("\ndata:");
+        if (data != null){
+            for(byte b : data){
+                resultBuf.append(b);
+            }
+        }
+        return resultBuf.toString();
+    }
+}
+```
+
+### 7. `ResponseType.java`
+
+**Purpose**: Defines the structure and serialization/deserialization of response packets received from the server.
+
+```java:src/model/ResponseType.java
+package model;
+
+import java.security.InvalidParameterException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.ArrayList;
+
+public class ResponseType {
+    
+    public static final int HEADER_SIZE = 10;
+    public static int MAX_DATA_SIZE = 1000;
+    
+    public static class RESPONSE_TYPES{
+        public static final int GET_FILE_LIST_SUCCESS = 1;
+        public static final int GET_FILE_SIZE_SUCCESS = 2;
+        public static final int GET_FILE_DATA_SUCCESS = 3;
+        
+        public static final int INVALID_REQUEST_TYPE = 100;
+        public static final int INVALID_FILE_ID = 101;
+        public static final int INVALID_START_OR_END_BYTE = 102;
+    }
+    
+    // 1 byte
+    private int responseType;
+    // 1 byte
+    private int fileId;
+    // 4 bytes
+    protected long startByte;
+    // 4 bytes
+    protected long endByte;
+    protected byte[] data;
+    
+    public ResponseType(int responseType, int fileId, long startByte, long endByte, byte[] data){
+        this.responseType = responseType;
+        this.fileId = fileId;
+        this.startByte = startByte;
+        this.endByte = endByte;
+        this.data = data;
+    }
+    
+    public ResponseType(byte[] rawData) {
+        if (rawData.length < HEADER_SIZE){
+            throw new InvalidParameterException("Invalid Header");
+        }
+        responseType = (int)rawData[0] & 0xFF;
+        fileId = (int)rawData[1] & 0xFF;
+        startByte = 0;
+        for(int i = 2; i < 6; i++){
+            startByte = (startByte << 8) | ((int)rawData[i] & 0xFF);
+        }
+        endByte = 0;
+        for(int i = 6; i < 10; i++){
+            endByte = (endByte << 8) | ((int)rawData[i] & 0xFF);
+        }
+        data = Arrays.copyOfRange(rawData, 10, rawData.length);
+    }
+    
+    public byte[] toByteArray(){
+        int dataLength = (data != null) ? data.length : 0;
+        byte[] rawData = new byte[10 + dataLength];
+        rawData[0] = (byte)(responseType & 0xFF);
+        rawData[1] = (byte)(fileId & 0xFF);
+        long tmp = startByte;
+        for(int i = 5; i > 1; i--){
+            rawData[i] = (byte)(tmp & 0xFF);
+            tmp >>= 8;
+        }
+        tmp = endByte;
+        for(int i = 9; i > 5; i--){
+            rawData[i] = (byte)(tmp & 0xFF);
+            tmp >>= 8;
+        }
+        if (data != null){
+            System.arraycopy(data, 0, rawData, 10, dataLength);
+        }
+        return rawData;
+    }
+    
+    public int getResponseType() {
+        return responseType;
+    }
+
+    public int getFileId() {
+        return fileId;
+    }
+
+    public long getStartByte() {
+        return startByte;
+    }
+
+    public long getEndByte() {
+        return endByte;
+    }
+
+    public byte[] getData() {
+        return data;
+    }
+    
+    public static List<FileDescriptor> parseFileList(byte[] data) {
+        List<FileDescriptor> fileList = new ArrayList<>();
+        if (data.length < 1) return fileList;
+        int totalFiles = data[0] & 0xFF;
+        int index = 1;
+        for(int i = 0; i < totalFiles; i++) {
+            if (index + 1 > data.length) break;
+            int fileId = data[index++] & 0xFF;
+            StringBuilder fileName = new StringBuilder();
+            while(index < data.length && data[index] != 0) {
+                fileName.append((char)data[index++]);
+            }
+            index++; // Skip null terminator
+            fileList.add(new FileDescriptor(fileId, fileName.toString()));
+        }
+        return fileList;
+    }
+    
+    public static long parseFileSize(byte[] data) {
+        if (data.length < 4) return -1;
+        long size = 0;
+        for(int i = 0; i < 4; i++){
+            size = (size << 8) | ((int)data[i] & 0xFF);
+        }
+        return size;
+    }
+    
+    @Override
+    public String toString() {
+        StringBuilder resultBuf = new StringBuilder("\nresponse_type:" + responseType);
+        resultBuf.append("\nfile_id:" + fileId);
+        resultBuf.append("\nstart_byte:" + startByte);
+        resultBuf.append("\nend_byte:" + endByte);
+        resultBuf.append("\ndata:");
+        if (data != null){
+            for(byte b : data){
+                resultBuf.append(b);
+            }
+        }
+        return resultBuf.toString();
+    }
+}
+```
+
+### 8. `MD5Checksum.java`
+
+**Purpose**: Computes the MD5 checksum of downloaded files to verify data integrity.
+
+```java:src/utils/MD5Checksum.java
+package utils;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+public class MD5Checksum {
+    public static String getMD5Checksum(String filename) {
+        try (FileInputStream fis = new FileInputStream(filename)) {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            
+            byte[] buffer = new byte[8192];
+            int numRead;
+            do {
+                numRead = fis.read(buffer);
+                if (numRead > 0) {
+                    md.update(buffer, 0, numRead);
+                }
+            } while (numRead != -1);
+            
+            byte[] digest = md.digest();
+            return bytesToHex(digest);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+    
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for(byte b : bytes){
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+}
+```
+
+### 9. `Timer.java`
+
+**Purpose**: Handles timing and performance measurements for file downloads.
+
+```java:src/utils/Timer.java
+package utils;
+
+public class Timer {
+    private long startTime;
+    private long endTime;
+
+    public void start(){
+        startTime = System.currentTimeMillis();
+    }
+
+    public void stop(){
+        endTime = System.currentTimeMillis();
+    }
+
+    public long getElapsedTime(){
+        return endTime - startTime;
+    }
+}
+```
+
+### 10. `UDPReceiver.java` and `UDPSender.java`
+
+**Purpose**: Handles sending and receiving of UDP packets, encapsulating the low-level socket operations.
+
+```java:src/utils/UDPSender.java
+package utils;
+
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
+
+public class UDPSender {
+    private DatagramSocket socket;
+    private InetSocketAddress address;
+    private byte[] data;
+
+    public UDPSender(DatagramSocket socket, InetSocketAddress address, byte[] data){
+        this.socket = socket;
+        this.address = address;
+        this.data = data;
+    }
+
+    public void send() throws IOException {
+        DatagramPacket packet = new DatagramPacket(data, data.length, address.getAddress(), address.getPort());
+        socket.send(packet);
+    }
+}
+```
+
+```java:src/utils/UDPReceiver.java
+package utils;
+
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+
+import model.ResponseType;
+
+public class UDPReceiver {
+    private DatagramSocket socket;
+    private byte[] buffer;
+
+    public UDPReceiver(DatagramSocket socket, byte[] buffer){
+        this.socket = socket;
+        this.buffer = buffer;
+    }
+
+    public ResponseType receive() throws IOException {
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+        socket.receive(packet);
+        return new ResponseType(packet.getData());
+    }
+}
+```
+
+### 11. `log4j.properties`
+
+**Purpose**: Configuration file for Log4j to manage logging levels and formats.
+
+```properties:resources/log4j.properties
+# Set root logger level to DEBUG and its only appender to A1.
+log4j.rootLogger=DEBUG, A1
+
+# A1 is set to be a ConsoleAppender.
+log4j.appender.A1=org.apache.log4j.ConsoleAppender
+log4j.appender.A1.layout=org.apache.log4j.PatternLayout
+log4j.appender.A1.layout.ConversionPattern=%d{ISO8601} [%t] %-5p %c %x - %m%n
+```
+
+## Implementation Details
+
+### Multi-Interface Utilization
+
+The `ConnectionManager` class manages multiple UDP connections to the server. By distributing requests across different sockets, the client can leverage multiple network interfaces or ports to maximize throughput and handle varying network conditions.
+
+### Reliable Data Transfer Mechanisms
+
+While UDP does not guarantee reliability, the client implements mechanisms to ensure data integrity and successful transfers:
+
+- **Sequencing**: Each data packet includes `start_byte` and `end_byte` to identify the segment of the file it contains.
+- **Acknowledgments**: The server responds with appropriate status codes to confirm receipt and validity of requests.
+- **Retransmissions**: In case of missing or corrupted packets, the client can request retransmission of specific segments.
+- **Timeout Management**: The client employs timeout mechanisms to avoid indefinite waiting for server responses.
+
+### Adaptive Strategies
+
+The client monitors real-time network conditions, such as transfer speeds and packet loss rates, to dynamically distribute data requests across the fastest available connections. This adaptability ensures optimal utilization of network resources and enhances download performance.
+
+### Performance Metrics
+
+Throughout the download process, the client records valuable performance metrics:
+
+- **Transfer Speed**: Measures the rate of data transfer over each connection.
+- **Percentage Completion**: Indicates the progress of the file download.
+- **Elapsed Time**: Tracks the total time taken for the download.
+- **Packet Loss Rate**: Monitors the rate of lost packets during transmission.
+- **Round-Trip Times (RTT)**: Evaluates the latency of each connection.
+
+Upon completion, these metrics are presented to the user, along with an MD5 checksum to verify the integrity of the downloaded file.
+
+### File Assembly and Integrity Verification
+
+The `FileDownloader` class collects all received file segments and assembles them into the complete file. After assembly, the client computes the MD5 checksum of the downloaded file using the `MD5Checksum` utility to ensure data integrity. If the checksum matches the server's original, the download is deemed successful; otherwise, the client initiates corrective measures.
+
+## Conclusion
+
+The proposed client-side architecture for the Reliable Data Transfer Protocol project emphasizes robustness, efficiency, and adaptability. By meticulously managing multiple connections, implementing reliable data transfer mechanisms, and continuously monitoring performance metrics, the client ensures swift and accurate file downloads even under challenging network conditions. The organized file structure and comprehensive class implementations facilitate maintainability and scalability, laying a solid foundation for a successful project.

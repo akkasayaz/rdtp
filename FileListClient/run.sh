@@ -1,1 +1,1 @@
-java -classpath "bin:lib/*" client.dummyClient $1 $2
+java -classpath "bin:lib/*" client.ReliableClient $1 $2

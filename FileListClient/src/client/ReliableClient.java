@@ -25,9 +25,25 @@ import model.FileDescriptor;
  * - File saving and checksum verification
  */
 public class ReliableClient {
+    private static int port1;
+    private static int port2;
+
+    // number of timeouts of each port
+    private int timeoutCount1 = 0;
+    private int timeoutCount2 = 0;
+
+    // total latency of each port
+    private long totalLatency1 = 0;
+    private long totalLatency2 = 0;
+
+    // packet count of each port 
+    private int packetCount1 = 0;
+    private int packetCount2 = 0;
+
     private static final int TIMEOUT_MS = 1000; // Timeout in milliseconds
-    private static final int MAX_RETRIES = 3;   // Maximum retransmission attempts
+    private static final int MAX_RETRIES = 5;   // Maximum retransmission attempts
     private static final int CHUNK_SIZE = ResponseType.MAX_DATA_SIZE;
+
     private static final String DOWNLOAD_DIR = "downloads";
     private final loggerManager logger;
     private final MessageDigest md5Digest;
@@ -65,14 +81,19 @@ public class ReliableClient {
         if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
             throw new IOException("Too many failed attempts, stopping transfer");
         }
-
+        if (port == port1) {
+            packetCount1++;
+        } else {
+            packetCount2++;
+        }
+        
         byte[] sendData = request.toByteArray();
         DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, address, port);
         
         int retries = 0;
         while (retries < MAX_RETRIES) {
+            long sendTime = System.nanoTime();
             try {
-                long sendTime = System.nanoTime();
                 socket.send(sendPacket);
                 logger.debug("Sent request: " + request.toString());
                 
@@ -87,6 +108,7 @@ public class ReliableClient {
                 totalLatency += latency;
                 packetCount++;
                 
+                
                 ResponseType response = new ResponseType(receivePacket.getData());
                 if (response.getResponseType() != RESPONSE_TYPES.INVALID_REQUEST_TYPE) {
                     logger.debug("Received valid response (latency: " + latency + "ms)");
@@ -98,6 +120,13 @@ public class ReliableClient {
             } catch (SocketTimeoutException e) {
                 retries++;
                 failedAttempts++;
+                if (port == port1) {
+                    timeoutCount1++;
+                    totalLatency1 += TIMEOUT_MS;
+                } else {
+                    timeoutCount2++;
+                    totalLatency2 += TIMEOUT_MS;
+                }
                 logger.warn("Retry " + retries + " of " + MAX_RETRIES + " (Failed attempts: " + failedAttempts + ")");
             } catch (Exception e) {
                 failedAttempts++;
@@ -152,7 +181,7 @@ public class ReliableClient {
         }
     }
 
-    private void getFileData(String ip, int port, int file_id, String fileName, long size) throws IOException {
+    private void getFileData(String ip, int file_id, String fileName, long size) throws IOException {
         if (size <= 0) {
             throw new IllegalArgumentException("Invalid file size: " + size);
         }
@@ -174,11 +203,13 @@ public class ReliableClient {
             md5Digest.reset();
             
             while (maxReceivedByte < size) {
-                // Calculate chunk boundaries
+                // int port = port1 if checkport returns true else port2
+                int port = choosePort(port1, port2) ? port1 : port2;
+
                 long chunkEnd = Math.min(currentPosition + CHUNK_SIZE - 1, size);
                 RequestType req = new RequestType(RequestType.REQUEST_TYPES.GET_FILE_DATA, 
                         file_id, currentPosition, chunkEnd, null);
-                
+                logger.debug("using port: " + port);
                 DatagramPacket response = sendWithRetry(socket, req, IPAddress, port);
                 FileDataResponseType dataResponse = new FileDataResponseType(response.getData());
                 
@@ -248,6 +279,11 @@ public class ReliableClient {
         }
     }
 
+
+    private boolean choosePort(int port1, int port2) {
+        // if port1 has less average latency, choose port1
+        return totalLatency1 < totalLatency2;
+    }
     public static void main(String[] args) {
         if (args.length < 1) {
             System.err.println("Usage: java ReliableClient <ip>:<port>");
@@ -261,14 +297,17 @@ public class ReliableClient {
         }
 
         String ip = adr[0];
-        int port;
+
         try {
-            port = Integer.parseInt(adr[1]);
+            port1 = Integer.parseInt(adr[1]);
+            port2 = Integer.parseInt(args[1].split(":")[1]);
         } catch (NumberFormatException e) {
-            System.err.println("Invalid port number: " + adr[1]);
+            System.err.println("Invalid port number(s): " + adr[1] + " or " + adr[2]);
             System.exit(1);
             return;
         }
+        System.out.println("Connecting to server at " + ip + ":" + port1);
+        System.out.println("Connecting to server at " + ip + ":" + port2);
 
         ReliableClient client = null;
         Scanner scanner = null;
@@ -279,7 +318,7 @@ public class ReliableClient {
             
             while (true) {
                 try {
-                    FileDescriptor[] files = client.getFileList(ip, port);
+                    FileDescriptor[] files = client.getFileList(ip, port1);
                     if (files == null || files.length == 0) {
                         System.out.println("No files available for download");
                         break;
@@ -312,13 +351,13 @@ public class ReliableClient {
                     }
                     
                     System.out.println("You have chosen file: " + fileName + ". Getting the size info...");
-                    long size = client.getFileSize(ip, port, fileId);
+                    long size = client.getFileSize(ip, port1, fileId);
                     
                     if (size > 0) {
                         System.out.println("The file size is " + size + " bytes. Starting download...");
                         long startTime = System.currentTimeMillis();
                         
-                        client.getFileData(ip, port, fileId, fileName, size);
+                        client.getFileData(ip, fileId, fileName, size);
                         
                         long endTime = System.currentTimeMillis();
                         client.printTransferStats(fileName, size, endTime - startTime);

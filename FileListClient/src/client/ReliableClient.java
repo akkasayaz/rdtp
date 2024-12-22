@@ -81,11 +81,6 @@ public class ReliableClient {
         if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
             throw new IOException("Too many failed attempts, stopping transfer");
         }
-        if (port == port1) {
-            packetCount1++;
-        } else {
-            packetCount2++;
-        }
         
         byte[] sendData = request.toByteArray();
         DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, address, port);
@@ -93,9 +88,14 @@ public class ReliableClient {
         int retries = 0;
         while (retries < MAX_RETRIES) {
             long sendTime = System.nanoTime();
+            if (port == port1) {
+                packetCount1++;
+            } else {
+                packetCount2++;
+            }
             try {
                 socket.send(sendPacket);
-                logger.debug("Sent request: " + request.toString());
+                // logger.debug("Sent request: " + request.toString());
                 
                 byte[] receiveData = new byte[ResponseType.MAX_RESPONSE_SIZE];
                 DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
@@ -107,11 +107,17 @@ public class ReliableClient {
                 long latency = (receiveTime - sendTime) / 1_000_000; // Convert to milliseconds
                 totalLatency += latency;
                 packetCount++;
+                if (port == port1) {
+                    totalLatency1 += latency;
+                } else {
+                    totalLatency2 += latency;
+                    
+                }
                 
                 
                 ResponseType response = new ResponseType(receivePacket.getData());
                 if (response.getResponseType() != RESPONSE_TYPES.INVALID_REQUEST_TYPE) {
-                    logger.debug("Received valid response (latency: " + latency + "ms)");
+                    // logger.debug("Received valid response (latency: " + latency + "ms)");
                     failedAttempts = 0; // Reset failed attempts on success
                     return receivePacket;
                 }
@@ -123,9 +129,11 @@ public class ReliableClient {
                 if (port == port1) {
                     timeoutCount1++;
                     totalLatency1 += TIMEOUT_MS;
+                    port = port2;
                 } else {
                     timeoutCount2++;
                     totalLatency2 += TIMEOUT_MS;
+                    port = port1;
                 }
                 logger.warn("Retry " + retries + " of " + MAX_RETRIES + " (Failed attempts: " + failedAttempts + ")");
             } catch (Exception e) {
@@ -201,15 +209,26 @@ public class ReliableClient {
             outputFile = new File(DOWNLOAD_DIR + File.separator + fileName);
             fileOutputStream = new FileOutputStream(outputFile);
             md5Digest.reset();
-            
+            int i = 0;
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             while (maxReceivedByte < size) {
                 // int port = port1 if checkport returns true else port2
                 int port = choosePort(port1, port2) ? port1 : port2;
-
+                if (i%100==0){
+                    logger.debug(port1 + " " + packetCount1 + " " + timeoutCount1 + " " + totalLatency1);
+                    logger.debug(port2 + " " + packetCount2 + " " + timeoutCount2 + " " + totalLatency2);
+                    logger.debug("so chosen port is " + port);
+                }
+                // logger.debug("using port: " + port);
+                if (port == port1) {
+                    packetCount1++;
+                } else {
+                    packetCount2++;
+                }
                 long chunkEnd = Math.min(currentPosition + CHUNK_SIZE - 1, size);
                 RequestType req = new RequestType(RequestType.REQUEST_TYPES.GET_FILE_DATA, 
                         file_id, currentPosition, chunkEnd, null);
-                logger.debug("using port: " + port);
+                // logger.debug("using port: " + port);
                 DatagramPacket response = sendWithRetry(socket, req, IPAddress, port);
                 FileDataResponseType dataResponse = new FileDataResponseType(response.getData());
                 
@@ -218,23 +237,29 @@ public class ReliableClient {
                     throw new IOException("Failed to get file data chunk");
                 }
                 
-                // Write data to file and update MD5
+                // Write data to buffer and update MD5
                 byte[] data = dataResponse.getData();
                 if (data == null || data.length == 0) {
                     throw new IOException("Received empty data chunk");
                 }
-
-                fileOutputStream.write(data);
+                i++;
+                buffer.write(data);
                 md5Digest.update(data);
-                
-                logger.debug("Received chunk: " + dataResponse.toString());
                 if (dataResponse.getEnd_byte() > maxReceivedByte) {
                     maxReceivedByte = dataResponse.getEnd_byte();
                     currentPosition = maxReceivedByte + 1;
-                    logger.info(String.format("Progress: %.1f%%", 
-                        (float)maxReceivedByte / size * 100));
+                    
+                    // print progress every 10%
+                    if (i % 100 == 0) {
+                        logger.info(String.format("Progress: %.1f%%", 
+                                (float)maxReceivedByte / size * 100));
+                        logger.info("used port 1 "+ packetCount1 + " packets and had " + timeoutCount1 + " timeouts");
+                        logger.info("used port 2 "+ packetCount2 + " packets and had " + timeoutCount2 + " timeouts");
+                    }
                 }
             }
+            // Write buffer to file
+            fileOutputStream.write(buffer.toByteArray());
             success = true;
         } catch (Exception e) {
             logger.error("Failed to download file: " + e.getMessage());
@@ -265,6 +290,8 @@ public class ReliableClient {
             logger.info("Size: " + fileSize + " bytes");
             logger.info("MD5 Checksum: " + bytesToHex(md5Digest.digest()));
             logger.info("Duration: " + duration + " ms");
+            logger.info("Port 1 used "+ packetCount1 + " packets and had " + timeoutCount1 + " timeouts");
+            logger.info("Port 2 used "+ packetCount2 + " packets and had " + timeoutCount2 + " timeouts");
             logger.info(String.format("Average Latency: %.2f ms", avgLatency));
             logger.info(String.format("Throughput: %.2f KB/s", throughput));
             logger.info("Packets Sent/Received: " + packetCount);
@@ -273,6 +300,18 @@ public class ReliableClient {
             logger.error("Failed to print transfer statistics: " + e.getMessage());
         } finally {
             // Reset counters for next transfer
+                // number of timeouts of each port
+            timeoutCount1 = 0;
+            timeoutCount2 = 0;
+
+            // total latency of each port
+            totalLatency1 = 0;
+            totalLatency2 = 0;
+
+            // packet count of each port 
+            packetCount1 = 0;
+            packetCount2 = 0;
+
             totalLatency = 0;
             packetCount = 0;
             failedAttempts = 0;

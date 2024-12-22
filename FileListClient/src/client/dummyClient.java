@@ -51,7 +51,6 @@ public class dummyClient {
             DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
             dsocket.receive(receivePacket);
             FileListResponseType response = new FileListResponseType(receivePacket.getData());
-            loggerManager.getInstance(this.getClass()).debug(response.toString());
         } finally {
             if (dsocket != null) {
                 dsocket.close();
@@ -97,7 +96,6 @@ public class dummyClient {
                 DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
                 dsocket.receive(receivePacket);
                 FileDataResponseType response = new FileDataResponseType(receivePacket.getData());
-                loggerManager.getInstance(this.getClass()).debug(response.toString());
                 if (response.getResponseType() != RESPONSE_TYPES.GET_FILE_DATA_SUCCESS) {
                     break;
                 }
